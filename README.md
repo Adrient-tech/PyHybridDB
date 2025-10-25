@@ -227,18 +227,53 @@ response = requests.post(
 
 ### Environment Variables
 
-All configuration is managed through environment variables.
+PyHybridDB uses environment variables for configuration. After installing via pip, you can configure it in multiple ways:
 
-### Setup
+### Method 1: Create .env File (Recommended)
+
+Create a `.env` file in your project directory:
+
+```bash
+# Create .env file
+touch .env  # Linux/Mac
+# or
+New-Item .env  # Windows PowerShell
+```
+
+Add your configuration:
+
+```env
+SECRET_KEY=your-super-secret-key-change-this
+ADMIN_PASSWORD=your-secure-password
+API_PORT=8000
+DEFAULT_DB_PATH=./data
+```
+
+### Method 2: Set Environment Variables
 
 ```powershell
-# 1. Copy template
-Copy-Item config.env .env
+# Windows PowerShell
+$env:SECRET_KEY = "my-secret-key"
+$env:ADMIN_PASSWORD = "secure-password"
+$env:API_PORT = "8080"
+```
 
-# 2. Edit .env file
-notepad .env
+```bash
+# Linux/Mac
+export SECRET_KEY="my-secret-key"
+export ADMIN_PASSWORD="secure-password"
+export API_PORT="8080"
+```
 
-# 3. Update sensitive values
+### Method 3: Programmatic Configuration
+
+```python
+import os
+os.environ['SECRET_KEY'] = 'my-secret-key'
+os.environ['DEFAULT_DB_PATH'] = './my_data'
+
+from pyhybriddb import Database
+db = Database("my_app")
 ```
 
 ### Available Settings
