@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Status: Alpha](https://img.shields.io/badge/status-alpha-orange.svg)]()
 [![GitHub](https://img.shields.io/badge/GitHub-PyHybridDB-blue.svg)](https://github.com/Adrient-tech/PyHybridDB.git)
-[![PIP - Package]([https://img.shields.io/badge/GitHub-PyHybridDB-blue.svg)](https://github.com/Adrient-tech/PyHybridDB.git](https://pypi.org/project/pyhybriddb/1.0.1/))
+[![PIP - Package](https://img.shields.io/badge/status-alpha-orange.svg)](https://pypi.org/project/pyhybriddb/1.0.1/)
 
 ---
 
