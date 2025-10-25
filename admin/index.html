@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyHybridDB Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f7fa;
+            color: #2c3e50;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .header-left p {
+            opacity: 0.9;
+            margin-top: 0.5rem;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-info .username {
+            font-weight: 600;
+        }
+
+        .user-info .role {
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .logout-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Login Container */
+        #login-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .login-box {
+            background: white;
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h2 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            text-align: center;
+        }
+
+        .login-box p {
+            color: #7f8c8d;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .login-form .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .login-form label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #34495e;
+            font-weight: 500;
+        }
+
+        .login-form input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .login-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .login-error {
+            display: none;
+            background: #fee;
+            color: #c33;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .login-btn {
+            width: 100%;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.875rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .login-btn:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-footer {
+            margin-top: 1.5rem;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.85rem;
+        }
+
+        #app-container {
+            display: none;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 2rem;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: fit-content;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 1rem;
+            color: #667eea;
+            font-size: 1.1rem;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar li {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sidebar li:hover {
+            background: #f0f3ff;
+            color: #667eea;
+        }
+
+        .sidebar li.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            min-height: 600px;
+        }
+
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        .section h2 {
+            margin-bottom: 1.5rem;
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s;
+            margin-right: 0.5rem;
+        }
+
+        .btn:hover {
+            background: #5568d3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .btn-danger {
+            background: #e74c3c;
+        }
+
+        .btn-danger:hover {
+            background: #c0392b;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #34495e;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 2px solid #e0e6ed;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group textarea {
+            min-height: 150px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #667eea;
+        }
+
+        .card h4 {
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .card p {
+            color: #7f8c8d;
+            margin-bottom: 0.5rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+
+        .stat-card h3 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card p {
+            opacity: 0.9;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e6ed;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .query-result {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Container -->
+    <div id="login-container">
+        <div class="login-box">
+            <h2>🗄️ PyHybridDB</h2>
+            <p>Sign in to access the admin panel</p>
+            
+            <div id="login-error" class="login-error"></div>
+            
+            <form class="login-form" onsubmit="event.preventDefault(); login();">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <input type="text" id="login-username" placeholder="Enter username" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="Enter password" autocomplete="current-password">
+                </div>
+                <button type="submit" class="login-btn">Sign In</button>
+            </form>
+            
+            <div class="login-footer">
+                Default credentials: admin / admin123
+            </div>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app-container">
+        <div class="header">
+            <div class="header-left">
+                <h1>🗄️ PyHybridDB Admin Panel</h1>
+                <p>Hybrid Database Management System - SQL & NoSQL in One</p>
+            </div>
+            <div class="header-right">
+                <div class="user-info">
+                    <div class="username" id="user-name">Admin</div>
+                    <div class="role" id="user-role">Administrator</div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="container">
+        <div class="grid">
+            <div class="sidebar">
+                <h3>Navigation</h3>
+                <ul>
+                    <li class="nav-item active" data-section="dashboard">📊 Dashboard</li>
+                    <li class="nav-item" data-section="databases">🗄️ Databases</li>
+                    <li class="nav-item" data-section="tables">📋 Tables</li>
+                    <li class="nav-item" data-section="collections">📦 Collections</li>
+                    <li class="nav-item" data-section="query">⚡ Query Runner</li>
+                    <li class="nav-item" data-section="import-export">📦 Import/Export</li>
+                </ul>
+            </div>
+
+            <div class="main-content">
+                <!-- Dashboard Section -->
+                <div id="dashboard" class="section active">
+                    <h2>Dashboard</h2>
+                    <div class="stats" id="stats">
+                        <div class="stat-card">
+                            <h3 id="db-count">0</h3>
+                            <p>Databases</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="table-count">0</h3>
+                            <p>Tables</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="collection-count">0</h3>
+                            <p>Collections</p>
+                        </div>
+                    </div>
+                    <div id="db-list"></div>
+                </div>
+
+                <!-- Databases Section -->
+                <div id="databases" class="section">
+                    <h2>Databases</h2>
+                    <button class="btn" onclick="showCreateDatabase()">+ Create Database</button>
+                    <div id="create-db-form" style="display:none; margin-top: 1rem;">
+                        <div class="form-group">
+                            <label>Database Name</label>
+                            <input type="text" id="db-name" placeholder="my_database">
+                        </div>
+                        <button class="btn" onclick="createDatabase()">Create</button>
+                        <button class="btn btn-secondary" onclick="hideCreateDatabase()">Cancel</button>
+                    </div>
+                    <div id="databases-list" class="table-container"></div>
+                </div>
+
+                <!-- Tables Section -->
+                <div id="tables" class="section">
+                    <h2>Tables</h2>
+                    <div class="form-group">
+                        <label>Select Database</label>
+                        <select id="table-db-select" onchange="loadTables()">
+                            <option value="">-- Select Database --</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="showCreateTable()">+ Create Table</button>
+                    <div id="create-table-form" style="display:none; margin-top: 1rem;">
+                        <div class="form-group">
+                            <label>Table Name</label>
+                            <input type="text" id="table-name" placeholder="users">
+                        </div>
+                        <div class="form-group">
+                            <label>Schema (JSON format: {"column": "type"})</label>
+                            <textarea id="table-schema" placeholder='{"name": "string", "age": "integer", "email": "string"}'></textarea>
+                        </div>
+                        <button class="btn" onclick="createTable()">Create</button>
+                        <button class="btn btn-secondary" onclick="hideCreateTable()">Cancel</button>
+                    </div>
+                    <div id="tables-list"></div>
+                </div>
+
+                <!-- Collections Section -->
+                <div id="collections" class="section">
+                    <h2>Collections</h2>
+                    <div class="form-group">
+                        <label>Select Database</label>
+                        <select id="collection-db-select" onchange="loadCollections()">
+                            <option value="">-- Select Database --</option>
+                        </select>
+                    </div>
+                    <button class="btn" onclick="showCreateCollection()">+ Create Collection</button>
+                    <div id="create-collection-form" style="display:none; margin-top: 1rem;">
+                        <div class="form-group">
+                            <label>Collection Name</label>
+                            <input type="text" id="collection-name" placeholder="posts">
+                        </div>
+                        <button class="btn" onclick="createCollection()">Create</button>
+                        <button class="btn btn-secondary" onclick="hideCreateCollection()">Cancel</button>
+                    </div>
+                    <div id="collections-list"></div>
+                </div>
+
+                <!-- Query Section -->
+                <div id="query" class="section">
+                    <h2>Query Runner</h2>
+                    <div class="form-group">
+                        <label>Select Database</label>
+                        <select id="query-db-select">
+                            <option value="">-- Select Database --</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Query (SQL or NoSQL)</label>
+                        <textarea id="query-input" placeholder="SELECT * FROM users&#10;or&#10;db.users.find({})"></textarea>
+                    </div>
+                    <button class="btn" onclick="executeQuery()">▶ Execute Query</button>
+                    <button class="btn btn-secondary" onclick="clearQuery()">Clear</button>
+                    <div id="query-result"></div>
+                </div>
+
+                <!-- Import/Export Section -->
+                <div id="import-export" class="section">
+                    <h2>Import / Export Data</h2>
+                    
+                    <div class="form-group">
+                        <label>Select Database</label>
+                        <select id="import-export-db-select" onchange="loadImportExportOptions()">
+                            <option value="">-- Select Database --</option>
+                        </select>
+                    </div>
+
+                    <!-- Export Section -->
+                    <div class="card" style="margin-top: 2rem;">
+                        <h3>📤 Export Data</h3>
+                        <p>Export your database data to JSON or CSV format</p>
+                        
+                        <div class="form-group">
+                            <label>Export Type</label>
+                            <select id="export-type">
+                                <option value="database">Entire Database</option>
+                                <option value="table">Single Table</option>
+                                <option value="collection">Single Collection</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group" id="export-target-group" style="display:none;">
+                            <label>Select Target</label>
+                            <select id="export-target">
+                                <option value="">-- Select --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Format</label>
+                            <select id="export-format">
+                                <option value="json">JSON</option>
+                                <option value="csv">CSV (Tables only)</option>
+                            </select>
+                        </div>
+
+                        <button class="btn" onclick="exportData()">📥 Export</button>
+                    </div>
+
+                    <!-- Import Section -->
+                    <div class="card" style="margin-top: 2rem;">
+                        <h3>📥 Import Data</h3>
+                        <p>Import data from JSON or CSV files</p>
+                        
+                        <div class="form-group">
+                            <label>Import Type</label>
+                            <select id="import-type">
+                                <option value="table">Import to Table</option>
+                                <option value="collection">Import to Collection</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Target Name</label>
+                            <input type="text" id="import-target-name" placeholder="Enter table/collection name">
+                        </div>
+
+                        <div class="form-group">
+                            <label>Select File</label>
+                            <input type="file" id="import-file" accept=".json,.csv">
+                        </div>
+
+                        <button class="btn" onclick="importData()">📤 Import</button>
+                    </div>
+
+                    <div id="import-export-result" style="margin-top: 2rem;"></div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
