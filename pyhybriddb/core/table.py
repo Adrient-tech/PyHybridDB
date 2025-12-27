@@ -3,17 +3,21 @@ Table - Structured data with schema (SQL-like)
 """
 
 from typing import Dict, Any, List, Optional
-from pyhybriddb.storage.engine import StorageEngine
-
+from pyhybriddb.storage.base import BaseStorageEngine
+from pyhybriddb.query.processor import QueryProcessor
 
 class Table:
     """Represents a structured table with schema"""
     
-    def __init__(self, name: str, schema: Dict[str, str], storage_engine: StorageEngine):
+    def __init__(self, name: str, schema: Dict[str, str], storage_engine: BaseStorageEngine):
         self.name = name
         self.schema = schema  # {column_name: data_type}
         self.storage_engine = storage_engine
+        self.query_processor = QueryProcessor(storage_engine)
         self._auto_increment_id = 0
+
+        # Always index ID
+        self.storage_engine.create_index(name, 'id')
     
     def insert(self, record: Dict[str, Any]) -> int:
         """Insert a record into the table"""
@@ -24,13 +28,13 @@ class Table:
         if 'id' not in record:
             self._auto_increment_id += 1
             record['id'] = self._auto_increment_id
+        else:
+            # Update auto increment if user provided id is higher
+            if isinstance(record['id'], int) and record['id'] > self._auto_increment_id:
+                self._auto_increment_id = record['id']
         
         # Store record
-        offset = self.storage_engine.insert_record(self.name, record)
-        
-        # Update table metadata
-        if self.name in self.storage_engine.metadata['tables']:
-            self.storage_engine.metadata['tables'][self.name]['offsets'].append(offset)
+        self.storage_engine.insert_record(self.name, record)
         
         return record['id']
     
@@ -65,53 +69,36 @@ class Table:
     
     def select(self, where: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Select records from table"""
-        results = []
-        
-        # Get all offsets for this table
-        table_info = self.storage_engine.metadata['tables'].get(self.name, {})
-        offsets = table_info.get('offsets', [])
-        
-        for offset in offsets:
-            try:
-                record = self.storage_engine.read_record(offset)
-                
-                # Apply where clause
-                if where is None or self._matches_where(record, where):
-                    results.append(record)
-            except Exception:
-                continue
-        
-        return results
-    
-    def _matches_where(self, record: Dict[str, Any], where: Dict[str, Any]) -> bool:
-        """Check if record matches where clause"""
-        for key, value in where.items():
-            if key not in record or record[key] != value:
-                return False
-        return True
+        if where is None:
+            return self.storage_engine.scan_table(self.name)
+
+        return self.query_processor.execute(self.name, where)
     
     def update(self, where: Dict[str, Any], updates: Dict[str, Any]) -> int:
         """Update records matching where clause"""
+        # We need offsets to update properly in metadata list
+        # select() returns copies of records.
+        # We need to access storage engine scan to find offsets or use index lookup + verification
+
+        # Simpler approach: Iterate all offsets, check condition, update if match
         count = 0
         table_info = self.storage_engine.metadata['tables'].get(self.name, {})
         offsets = table_info.get('offsets', [])
         
         for i, offset in enumerate(offsets):
             try:
-                record = self.storage_engine.read_record(offset)
-                
-                if self._matches_where(record, where):
-                    # Apply updates
-                    record.update(updates)
-                    self._validate_record(record)
-                    
-                    # Write updated record
-                    new_offset = self.storage_engine.update_record(offset, record)
-                    offsets[i] = new_offset
-                    count += 1
-            except Exception:
+                record = self.storage_engine.read_record(self.name, offset)
+                # Check if matches 'where'
+                # Use query processor logic or simple check
+                if self.query_processor._matches_query(record, where):
+                     record.update(updates)
+                     self._validate_record(record)
+                     new_offset = self.storage_engine.update_record(self.name, record['id'], record)
+                     offsets[i] = new_offset
+                     count += 1
+            except:
                 continue
-        
+
         return count
     
     def delete(self, where: Dict[str, Any]) -> int:
@@ -123,22 +110,25 @@ class Table:
         
         for offset in offsets:
             try:
-                record = self.storage_engine.read_record(offset)
-                
-                if self._matches_where(record, where):
-                    # Mark for deletion
-                    self.storage_engine.delete_record(self.name, record.get('id'))
-                    count += 1
+                record = self.storage_engine.read_record(self.name, offset)
+                if self.query_processor._matches_query(record, where):
+                     self.storage_engine.delete_record(self.name, record['id'])
+                     count += 1
                 else:
                     new_offsets.append(offset)
-            except Exception:
+            except:
                 new_offsets.append(offset)
         
-        # Update offsets
         table_info['offsets'] = new_offsets
-        
         return count
     
+    def create_index(self, column: str):
+        """Create an index on a column"""
+        if column in self.schema or column == 'id':
+            self.storage_engine.create_index(self.name, column)
+        else:
+            raise ValueError(f"Column {column} not in schema")
+
     def count(self) -> int:
         """Count records in table"""
         table_info = self.storage_engine.metadata['tables'].get(self.name, {})

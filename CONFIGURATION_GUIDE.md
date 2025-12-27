@@ -1,347 +1,116 @@
 # 🔧 PyHybridDB Configuration Guide
 
-Complete guide for configuring PyHybridDB after pip installation.
+Complete guide for configuring and optimizing PyHybridDB.
 
 ---
 
 ## 📋 Overview
 
-PyHybridDB uses **environment variables** for configuration. This allows users to configure the database without modifying package files.
+PyHybridDB is a native Python database engine. It does not require installing MongoDB, PostgreSQL, or MySQL servers. It runs embedded in your application, similar to SQLite but with more features.
 
 ---
 
-## ✅ Configuration Methods
+## ⚡ Performance Optimization
 
-### **Method 1: CLI Init Command (Easiest)** ⭐
+### **1. Indexing**
 
-After installing PyHybridDB via pip, run:
+Indexes are the single most important factor for performance on large datasets. Without an index, the database performs a "Full Table Scan", reading every record from disk.
 
-```bash
-# Create .env file with secure defaults
-pyhybriddb init
+**Supported Index Types:**
+- **B-Tree**: Good for range queries ($gt, $lt) and equality checks. Default for all fields.
 
-# Or force overwrite existing file
-pyhybriddb init --force
-```
-
-This creates a `.env` file in your current directory with:
-- ✅ Automatically generated secure SECRET_KEY
-- ✅ All configuration options with defaults
-- ✅ Comments explaining each setting
-
-Then edit the file:
-```bash
-notepad .env  # Windows
-nano .env     # Linux/Mac
-```
-
----
-
-### **Method 2: Manual .env File**
-
-Create a `.env` file in your project directory:
-
-```env
-# Security
-SECRET_KEY=your-super-secret-key-change-this
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# Admin Credentials
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=your-secure-password
-ADMIN_EMAIL=admin@example.com
-
-# API Configuration
-API_HOST=0.0.0.0
-API_PORT=8000
-
-# Database
-DEFAULT_DB_PATH=./data
-LOG_LEVEL=INFO
-CORS_ORIGINS=*
-```
-
----
-
-### **Method 3: Environment Variables**
-
-Set environment variables directly:
-
-**Windows PowerShell:**
-```powershell
-$env:SECRET_KEY = "my-secret-key"
-$env:ADMIN_PASSWORD = "secure-password"
-$env:API_PORT = "8080"
-$env:DEFAULT_DB_PATH = "./my_data"
-
-# Then run
-pyhybriddb serve
-```
-
-**Linux/Mac:**
-```bash
-export SECRET_KEY="my-secret-key"
-export ADMIN_PASSWORD="secure-password"
-export API_PORT="8080"
-export DEFAULT_DB_PATH="./my_data"
-
-# Then run
-pyhybriddb serve
-```
-
----
-
-### **Method 4: Programmatic Configuration**
-
-Configure in your Python code:
+**How to Index:**
 
 ```python
-import os
+# For Collections
+users = db.create_collection("users")
+users.create_index("email")  # Fast lookups by email
+users.create_index("age")    # Fast range queries on age
 
-# Set configuration before importing
-os.environ['SECRET_KEY'] = 'my-secret-key'
-os.environ['ADMIN_PASSWORD'] = 'secure-password'
-os.environ['DEFAULT_DB_PATH'] = './my_data'
-os.environ['API_PORT'] = '8080'
-
-# Now import and use
-from pyhybriddb import Database
-
-db = Database("my_app")
+# For Tables
+orders = db.create_table("orders", {"amount": "int"})
+orders.create_index("amount")
 ```
 
----
+### **2. Caching**
 
-## 📝 Available Configuration Options
+PyHybridDB includes an internal LRU (Least Recently Used) cache.
 
-### **Security Settings**
+**Configuration:**
+Currently, the cache size is fixed to 5000 records per instance. Future versions will allow configuration via environment variables.
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | (random) | JWT secret key for authentication |
-| `JWT_ALGORITHM` | HS256 | JWT algorithm |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | 30 | Token expiration time |
+### **3. Batch Operations**
 
-### **Admin Credentials**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ADMIN_USERNAME` | admin | Default admin username |
-| `ADMIN_PASSWORD` | admin123 | Default admin password ⚠️ CHANGE THIS! |
-| `ADMIN_EMAIL` | admin@pyhybriddb.com | Admin email |
-
-### **API Configuration**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `API_HOST` | 0.0.0.0 | API server host |
-| `API_PORT` | 8000 | API server port |
-| `API_RELOAD` | false | Enable auto-reload (development) |
-
-### **Database Settings**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DEFAULT_DB_PATH` | ./data | Default database storage path |
-| `MAX_DATABASES` | 100 | Maximum number of databases |
-
-### **Logging & CORS**
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | INFO | Logging level (DEBUG, INFO, WARNING, ERROR) |
-| `CORS_ORIGINS` | * | Allowed CORS origins |
-| `CORS_ALLOW_CREDENTIALS` | true | Allow credentials in CORS |
-
----
-
-## 🔐 Security Best Practices
-
-### 1. **Generate Secure SECRET_KEY**
+When inserting massive amounts of data, use `insert_many` to reduce overhead.
 
 ```python
-import secrets
-print(secrets.token_urlsafe(32))
-```
+# Good
+collection.insert_many(large_list_of_dicts)
 
-Or use the init command which generates one automatically:
-```bash
-pyhybriddb init
-```
-
-### 2. **Change Default Password**
-
-```env
-ADMIN_PASSWORD=YourSecurePassword123!
-```
-
-### 3. **Restrict CORS in Production**
-
-```env
-CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
-```
-
-### 4. **Use HTTPS in Production**
-
-Deploy behind a reverse proxy (nginx, Apache) with SSL/TLS.
-
-### 5. **Set Appropriate Log Level**
-
-```env
-LOG_LEVEL=WARNING  # For production
+# Bad
+for doc in large_list_of_dicts:
+    collection.insert_one(doc)
 ```
 
 ---
 
-## 📦 Configuration After pip Install
+## 🔍 Query Capabilities
 
-### **Scenario 1: Quick Start**
+PyHybridDB supports a rich query syntax inspired by MongoDB.
 
-```bash
-# Install
-pip install pyhybriddb
+| Operator | Description | Example |
+| :--- | :--- | :--- |
+| **Equality** | Exact match | `{"name": "Alice"}` |
+| **$gt** | Greater than | `{"age": {"$gt": 18}}` |
+| **$lt** | Less than | `{"price": {"$lt": 100}}` |
+| **$gte** | Greater than or equal | `{"score": {"$gte": 50}}` |
+| **$lte** | Less than or equal | `{"rating": {"$lte": 5}}` |
+| **$ne** | Not equal | `{"status": {"$ne": "deleted"}}` |
 
-# Initialize configuration
-pyhybriddb init
+**Complex Queries:**
 
-# Edit configuration
-notepad .env
-
-# Start server
-pyhybriddb serve
-```
-
-### **Scenario 2: Custom Project**
-
-```bash
-# Install
-pip install pyhybriddb
-
-# Create project directory
-mkdir my_project
-cd my_project
-
-# Initialize configuration
-pyhybriddb init
-
-# Edit as needed
-nano .env
-
-# Use in code
-python my_app.py
-```
-
-### **Scenario 3: Docker/Container**
-
-```dockerfile
-FROM python:3.10
-
-# Install PyHybridDB
-RUN pip install pyhybriddb
-
-# Set environment variables
-ENV SECRET_KEY="your-secret-key"
-ENV ADMIN_PASSWORD="secure-password"
-ENV API_HOST="0.0.0.0"
-ENV API_PORT="8000"
-
-# Run server
-CMD ["pyhybriddb", "serve"]
+```python
+# Find active users older than 25
+users.find({
+    "active": True,
+    "age": {"$gt": 25}
+})
 ```
 
 ---
 
-## 🎯 Common Use Cases
+## 🛠️ Configuration Methods
 
-### **Development Setup**
+PyHybridDB uses **environment variables** for global settings.
 
-```env
-SECRET_KEY=dev-secret-key-not-for-production
-ADMIN_PASSWORD=admin123
-API_HOST=127.0.0.1
-API_PORT=8000
-API_RELOAD=true
-LOG_LEVEL=DEBUG
-CORS_ORIGINS=*
-```
-
-### **Production Setup**
-
-```env
-SECRET_KEY=<generated-secure-key>
-ADMIN_PASSWORD=<strong-password>
-API_HOST=0.0.0.0
-API_PORT=8000
-API_RELOAD=false
-LOG_LEVEL=WARNING
-CORS_ORIGINS=https://yourdomain.com
-```
-
-### **Testing Setup**
-
-```env
-SECRET_KEY=test-secret-key
-ADMIN_PASSWORD=test123
-API_HOST=127.0.0.1
-API_PORT=8001
-DEFAULT_DB_PATH=./test_data
-LOG_LEVEL=DEBUG
-```
-
----
-
-## 🔍 View Current Configuration
+### **Method 1: CLI Init Command**
 
 ```bash
-# Show all configuration
-pyhybriddb config
+pyhybriddb init
 ```
+
+Creates a `.env` file with defaults.
+
+### **Method 2: Environment Variables**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEFAULT_DB_PATH` | ./data | Default storage location |
+| `LOG_LEVEL` | INFO | Logging verbosity |
 
 ---
 
 ## ❓ FAQ
 
-### **Q: Where should I put the .env file?**
-A: In your project's root directory where you run `pyhybriddb` commands.
+### **Q: Is this faster than SQLite?**
+A: For simple relational queries, SQLite is highly optimized C code and is faster. PyHybridDB shines when you need **flexibility** (JSON documents) mixed with structured data, or Python-native extensibility.
 
-### **Q: Can I use different configurations for different projects?**
-A: Yes! Each project can have its own `.env` file.
+### **Q: Can I use it for production?**
+A: It is suitable for small to medium-scale production apps (e.g., embedded devices, desktop apps, microservices). For massive scale (terabytes of data), distributed databases are recommended.
 
-### **Q: What if I don't create a .env file?**
-A: PyHybridDB will use default values, but you'll see warnings about using default passwords.
-
-### **Q: Can I change configuration at runtime?**
-A: Yes, set environment variables before importing PyHybridDB in your code.
-
-### **Q: Is the .env file included in the pip package?**
-A: No, users create their own `.env` file using `pyhybriddb init` or manually.
-
-### **Q: How do I secure my SECRET_KEY?**
-A: Never commit `.env` to git. Add it to `.gitignore`. Use `pyhybriddb init` to generate secure keys.
+### **Q: How does it store data?**
+A: Data is stored in a custom binary-safe block format in `.phdb` files. Metadata and indexes are managed separately.
 
 ---
 
-## 📚 Additional Resources
-
-- **Quick Start**: See README.md
-- **API Documentation**: http://localhost:8000/docs (when server running)
-- **CLI Help**: `pyhybriddb --help`
-- **GitHub**: https://github.com/Adrient-tech/PyHybridDB
-
----
-
-## ✅ Summary
-
-**After pip install, users can configure PyHybridDB by:**
-
-1. ✅ Running `pyhybriddb init` (easiest)
-2. ✅ Creating a `.env` file manually
-3. ✅ Setting environment variables
-4. ✅ Configuring programmatically in code
-
-**The package does NOT require access to the source `config.env` file!**
-
----
-
-*Last Updated: October 25, 2025*
+*Last Updated: October 2025*
