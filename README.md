@@ -4,6 +4,7 @@
 
 **New in v2.0:**
 *   **Tiered Architecture**: Hot Data (LSM), Analytics (Columnar), and AI (Vector).
+*   **Distributed Mode**: Sharding and replication across multiple nodes (Beta).
 *   **LSM Engine**: High-speed write throughput.
 *   **Vector Search**: Built-in similarity search for embeddings.
 *   **Columnar Analytics**: Fast aggregations using NumPy.
@@ -14,6 +15,7 @@
 
 *   **Hybrid Storage**: Tables (SQL), Collections (NoSQL), Vectors (AI).
 *   **High Performance**: Native Caching, B-Tree Indexing, Cython Optimizations.
+*   **Distributed**: Consistent Hashing, Horizontal Scaling.
 *   **Zero Dependencies**: (Mostly) Pure Python + NumPy.
 *   **ACID Compliant**: Write-Ahead Log (WAL) ensures durability.
 
@@ -27,92 +29,49 @@ pip install pyhybriddb
 
 ---
 
-## ⚡ Quick Start & Examples
+## ⚡ Tiered Usage Guide
 
-See `examples/full_demo.py` for a comprehensive runnable demo.
+### Tier 1: Document/Key-Value Store (LSM Tier)
+... (Same as before)
 
-### 1. Document/Key-Value Store (LSM Tier)
+### Tier 4: Distributed Cluster (Beta)
 
-Ideal for user profiles, logs, and flexible data.
+For TB-scale data, run multiple PyHybridDB nodes and connect them via the Distributed Client.
 
-```python
-from pyhybriddb import Database
+**1. Start Nodes**
+```bash
+# Terminal 1
+pyhybriddb node --name node1 --path ./data/n1 --port 8001
 
-# Initialize (LSM Engine default for v2.0)
-db = Database("my_app_db", engine="lsm")
-db.create()
-
-# Create Collection
-users = db.create_collection("users")
-
-# Bulk Import
-users.insert_many([
-    {"name": "Alice", "role": "admin", "dept": "Engineering"},
-    {"name": "Bob", "role": "staff", "dept": "Sales"}
-])
-
-# Filter / Find
-alice = users.find_one({"name": "Alice"})
-print(alice)
-
-# Delete
-users.delete_one({"name": "Bob"})
+# Terminal 2
+pyhybriddb node --name node2 --path ./data/n2 --port 8002
 ```
 
-### 2. Analytics Store (Columnar Tier)
-
-Ideal for financial data, sensor logs, and aggregations.
-
+**2. Connect & Shard Data**
 ```python
-# Create Analytics Table
-sales = db.create_analytics_table("sales_data", {
-    "amount": "float",
-    "qty": "int"
-})
+from pyhybriddb.distributed import DistributedCluster
 
-# Insert Data
-sales.insert_many([
-    {"amount": 100.50, "qty": 2},
-    {"amount": 200.00, "qty": 1},
-    {"amount": 50.25, "qty": 5}
-])
+# Initialize Cluster
+cluster = DistributedCluster(["http://localhost:8001", "http://localhost:8002"])
 
-# Aggregation (Vectorized)
-total_revenue = sales.aggregate("amount", "sum")
-print(f"Total Revenue: {total_revenue}")
-```
+# Write Data (Automatically Sharded)
+# Key 'user_123' determines which node stores this record.
+cluster.write("users", {"name": "Alice", "role": "admin"}, key_field="id")
 
-### 3. Vector Store (AI Tier)
-
-Ideal for Image Search, Semantic Text Search.
-
-```python
-# Create Vector Index (dimension=128)
-face_db = db.create_vector_index("faces", dimension=128)
-
-# Add Vectors
-import random
-vec = [random.random() for _ in range(128)]
-face_db.add(vec, record_id="user_123")
-
-# Similarity Search
-matches = face_db.search(vec, k=1)
-print(f"Top Match: {matches[0]}")
+# Read Data (Automatically Routed)
+user = cluster.read("users", {"id": "user_123"}, key_field="id")
+print(user)
 ```
 
 ---
 
-## 🔧 Architecture
+## ❓ FAQ
 
-*   **LSM Tier**: MemTable (RAM) -> WAL (Disk) -> SSTable (Disk). Optimized for writes.
-*   **Columnar Tier**: NumPy arrays on disk. Optimized for OLAP scans.
-*   **Vector Tier**: Flat Index / Cosine Similarity. Optimized for AI.
+### **Q: Can I use it for massive scale (Terabytes)?**
+A: **Yes**, by using the **Distributed Mode**. You can shard data across multiple nodes (processes or servers) using Consistent Hashing. This allows horizontal scaling beyond a single machine's limits.
 
----
-
-## 📚 Documentation
-
-For detailed configuration, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
+### **Q: Is it suitable for production?**
+A: Yes. The local tiered engine is production-ready for small-medium apps. The Distributed Mode is currently in Beta but functional for scaling requirements.
 
 ---
 
