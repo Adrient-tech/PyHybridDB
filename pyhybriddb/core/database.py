@@ -9,6 +9,8 @@ from pathlib import Path
 from pyhybriddb.storage.base import BaseStorageEngine
 from pyhybriddb.storage.file_engine import FileStorageEngine
 from pyhybriddb.storage.lsm_engine import LSMStorageEngine
+from pyhybriddb.storage.columnar.engine import ColumnarStorageEngine, ColumnarTable
+from pyhybriddb.storage.vector.engine import VectorStorageEngine, VectorIndex
 from pyhybriddb.core.table import Table
 from pyhybriddb.core.collection import Collection
 
@@ -24,8 +26,11 @@ class Database:
         self.lsm_path = self.path / f"{name}_lsm"
         self.engine_type = engine
         self.connection_string = connection_string
-        
+
         self.storage_engine: Optional[BaseStorageEngine] = None
+        self.columnar_engine: Optional[ColumnarStorageEngine] = None
+        self.vector_engine: Optional[VectorStorageEngine] = None
+
         self.tables: Dict[str, Table] = {}
         self.collections: Dict[str, Collection] = {}
         self._is_open = False
@@ -43,14 +48,23 @@ class Database:
         
         self.storage_engine = self._create_engine()
         self.storage_engine.initialize()
-        self._is_open = True
         
+        # Initialize other tiers
+        self.columnar_engine = ColumnarStorageEngine(str(self.path))
+        self.vector_engine = VectorStorageEngine(str(self.path))
+
+        self._is_open = True
         return self
     
     def open(self):
         """Open an existing database"""
         self.storage_engine = self._create_engine()
         self.storage_engine.open()
+
+        # Initialize other tiers
+        self.columnar_engine = ColumnarStorageEngine(str(self.path))
+        self.vector_engine = VectorStorageEngine(str(self.path))
+
         self._is_open = True
         
         # Load existing tables and collections
@@ -140,6 +154,35 @@ class Database:
     def get_collection(self, name: str) -> Optional[Collection]:
         """Get a collection by name"""
         return self.collections.get(name)
+
+    # --- Analytics / Columnar Tier ---
+
+    def create_analytics_table(self, name: str, schema: Dict[str, str]) -> ColumnarTable:
+        """Create a columnar table for analytics"""
+        if not self.columnar_engine:
+            raise RuntimeError("DB not open")
+        self.columnar_engine.save_schema(name, schema)
+        return self.columnar_engine.create_table(name, schema)
+
+    def get_analytics_table(self, name: str) -> Optional[ColumnarTable]:
+        """Get a columnar table"""
+        if not self.columnar_engine:
+            return None
+        return self.columnar_engine.get_table(name)
+
+    # --- Vector Tier ---
+
+    def create_vector_index(self, name: str, dimension: int) -> VectorIndex:
+        """Create a vector index"""
+        if not self.vector_engine:
+             raise RuntimeError("DB not open")
+        return self.vector_engine.create_index(name, dimension)
+
+    def get_vector_index(self, name: str) -> Optional[VectorIndex]:
+        """Get a vector index"""
+        if not self.vector_engine:
+            return None
+        return self.vector_engine.get_index(name)
     
     def drop_table(self, name: str):
         """Drop a table"""
