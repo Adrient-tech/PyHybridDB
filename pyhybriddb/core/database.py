@@ -6,7 +6,9 @@ Manages tables and collections
 from typing import Dict, Any, Optional, List
 from pathlib import Path
 
-from pyhybriddb.storage.engine import StorageEngine
+from pyhybriddb.storage.base import BaseStorageEngine
+from pyhybriddb.storage.file_engine import FileStorageEngine
+from pyhybriddb.storage.lsm_engine import LSMStorageEngine
 from pyhybriddb.core.table import Table
 from pyhybriddb.core.collection import Collection
 
@@ -14,21 +16,32 @@ from pyhybriddb.core.collection import Collection
 class Database:
     """Main database class"""
     
-    def __init__(self, name: str, path: Optional[str] = None):
+    def __init__(self, name: str, path: Optional[str] = None,
+                 engine: str = 'lsm', connection_string: Optional[str] = None):
         self.name = name
         self.path = Path(path) if path else Path.cwd() / 'data'
         self.db_file = self.path / f"{name}.phdb"
+        self.lsm_path = self.path / f"{name}_lsm"
+        self.engine_type = engine
+        self.connection_string = connection_string
         
-        self.storage_engine: Optional[StorageEngine] = None
+        self.storage_engine: Optional[BaseStorageEngine] = None
         self.tables: Dict[str, Table] = {}
         self.collections: Dict[str, Collection] = {}
         self._is_open = False
     
+    def _create_engine(self) -> BaseStorageEngine:
+        if self.engine_type == 'lsm':
+            return LSMStorageEngine(str(self.lsm_path))
+        else:
+            # Fallback or other engines
+            return FileStorageEngine(str(self.db_file))
+
     def create(self):
         """Create a new database"""
         self.path.mkdir(parents=True, exist_ok=True)
         
-        self.storage_engine = StorageEngine(str(self.db_file))
+        self.storage_engine = self._create_engine()
         self.storage_engine.initialize()
         self._is_open = True
         
@@ -36,10 +49,7 @@ class Database:
     
     def open(self):
         """Open an existing database"""
-        if not self.db_file.exists():
-            raise FileNotFoundError(f"Database not found: {self.db_file}")
-        
-        self.storage_engine = StorageEngine(str(self.db_file))
+        self.storage_engine = self._create_engine()
         self.storage_engine.open()
         self._is_open = True
         
@@ -88,11 +98,15 @@ class Database:
         self.tables[name] = table
         
         # Update metadata
+        if 'tables' not in self.storage_engine.metadata:
+            self.storage_engine.metadata['tables'] = {}
+
         self.storage_engine.metadata['tables'][name] = {
             'schema': schema,
             'offsets': []
         }
-        self.storage_engine.create_index(name)
+        # Index on ID by default
+        self.storage_engine.create_index(name, 'id')
         
         return table
     
@@ -108,10 +122,14 @@ class Database:
         self.collections[name] = collection
         
         # Update metadata
+        if 'collections' not in self.storage_engine.metadata:
+            self.storage_engine.metadata['collections'] = {}
+
         self.storage_engine.metadata['collections'][name] = {
             'offsets': []
         }
-        self.storage_engine.create_index(name)
+        # Index on _id by default
+        self.storage_engine.create_index(name, '_id')
         
         return collection
     
@@ -129,6 +147,7 @@ class Database:
             del self.tables[name]
             if name in self.storage_engine.metadata['tables']:
                 del self.storage_engine.metadata['tables'][name]
+            # TODO: Clean up indexes
     
     def drop_collection(self, name: str):
         """Drop a collection"""
@@ -136,6 +155,7 @@ class Database:
             del self.collections[name]
             if name in self.storage_engine.metadata['collections']:
                 del self.storage_engine.metadata['collections'][name]
+            # TODO: Clean up indexes
     
     def list_tables(self) -> List[str]:
         """List all table names"""
@@ -173,7 +193,12 @@ class Database:
     
     def __enter__(self):
         if not self._is_open:
-            if self.db_file.exists():
+            if self.engine_type == 'lsm':
+                if self.lsm_path.exists():
+                    self.open()
+                else:
+                    self.create()
+            elif self.db_file.exists():
                 self.open()
             else:
                 self.create()

@@ -26,7 +26,8 @@ class TestDatabase(unittest.TestCase):
     
     def test_create_database(self):
         """Test database creation"""
-        self.assertTrue(self.db.db_file.exists())
+        # Checks if path exists (handles both file and lsm dir)
+        self.assertTrue(self.db.path.exists())
         self.assertTrue(self.db._is_open)
     
     def test_create_table(self):

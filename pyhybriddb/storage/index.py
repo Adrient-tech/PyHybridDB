@@ -3,24 +3,18 @@ B-Tree Index implementation for efficient data retrieval
 """
 
 from typing import Any, Optional, List, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import bisect
 
 
 @dataclass
 class BTreeNode:
     """Node in B-Tree structure"""
-    keys: List[Any]
-    values: List[int]  # File offsets
-    children: List['BTreeNode']
+    order: int
+    keys: List[Any] = field(default_factory=list)
+    values: List[int] = field(default_factory=list)  # File offsets
+    children: List['BTreeNode'] = field(default_factory=list)
     is_leaf: bool = True
-    
-    def __init__(self, order: int = 4):
-        self.order = order
-        self.keys = []
-        self.values = []
-        self.children = []
-        self.is_leaf = True
 
 
 class BTreeIndex:
@@ -35,6 +29,7 @@ class BTreeIndex:
         """Insert key-value pair into index"""
         root = self.root
         
+        # Max keys is 2*order - 1
         if len(root.keys) >= (2 * self.order - 1):
             # Root is full, split it
             new_root = BTreeNode(self.order)
@@ -82,23 +77,35 @@ class BTreeIndex:
         new_child = BTreeNode(order)
         new_child.is_leaf = full_child.is_leaf
         
+        # mid index for 2*order - 1 keys is (order - 1)
+        # e.g., order=4, max keys=7, mid index=3
         mid = order - 1
         
-        # Move half of keys to new node
+        # Move keys and values to new node
+        # keys[mid+1:] goes to new_child
         new_child.keys = full_child.keys[mid + 1:]
-        full_child.keys = full_child.keys[:mid]
-        
         new_child.values = full_child.values[mid + 1:]
+
+        # keys[:mid] stays in full_child
+        # keys[mid] goes to parent
+        median_key = full_child.keys[mid]
+        median_value = full_child.values[mid]
+
+        full_child.keys = full_child.keys[:mid]
         full_child.values = full_child.values[:mid]
         
+        # If not leaf, children also need to be split
+        # full_child children count is len(keys)+1
+        # Original keys=2t-1, children=2t
+        # New keys=t-1, children=t
         if not full_child.is_leaf:
             new_child.children = full_child.children[mid + 1:]
             full_child.children = full_child.children[:mid + 1]
         
         # Insert middle key into parent
-        parent.keys.insert(index, full_child.keys[mid])
-        parent.values.insert(index, full_child.values[mid])
         parent.children.insert(index + 1, new_child)
+        parent.keys.insert(index, median_key)
+        parent.values.insert(index, median_value)
     
     def search(self, key: Any) -> Optional[int]:
         """Search for a key and return its value (offset)"""
@@ -138,22 +145,36 @@ class BTreeIndex:
             
             i += 1
         
+        # Check last child
         if not node.is_leaf:
-            self._range_search_node(node.children[i], start, end, results)
+             # Need to be careful here to only traverse if relevant
+             # The loop handles children[0] to children[n-1]
+             # This handles children[n] (rightmost child)
+             if end >= node.keys[i-1]:
+                self._range_search_node(node.children[i], start, end, results)
     
     def delete(self, key: Any) -> bool:
         """Delete a key from the index"""
         # Simplified deletion - full implementation would be more complex
+        # Note: This simple implementation might unbalance the tree
         return self._delete_from_node(self.root, key)
     
     def _delete_from_node(self, node: BTreeNode, key: Any) -> bool:
         """Delete key from node (simplified)"""
         try:
-            idx = node.keys.index(key)
-            del node.keys[idx]
-            del node.values[idx]
-            self._size -= 1
-            return True
+            if key in node.keys:
+                idx = node.keys.index(key)
+                del node.keys[idx]
+                del node.values[idx]
+                self._size -= 1
+                return True
+            elif not node.is_leaf:
+                # Find child
+                i = 0
+                while i < len(node.keys) and key > node.keys[i]:
+                    i += 1
+                return self._delete_from_node(node.children[i], key)
+            return False
         except ValueError:
             return False
     
