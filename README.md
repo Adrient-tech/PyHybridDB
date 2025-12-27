@@ -1,126 +1,118 @@
-# PyHybridDB: The Versatile Local Database
+# PyHybridDB: The Versatile Local Database (v2.0)
 
 **PyHybridDB** is a high-performance, tiered storage database engine designed for modern Python applications. It unifies the best of SQL (structured), NoSQL (unstructured), and Vector (AI) worlds into a single, lightweight package.
 
-It features a **Hybrid Tiered Storage Architecture**:
-
-1.  **LSM-Tree Tier (Hot Data)**: Log-Structured Merge Tree for high-speed writes and Key-Value access (Cython optimized).
-2.  **Columnar Tier (Analytics)**: NumPy-backed columnar storage for OLAP aggregation.
-3.  **Vector Tier (AI)**: Vector storage and similarity search for Embeddings.
+**New in v2.0:**
+*   **Tiered Architecture**: Hot Data (LSM), Analytics (Columnar), and AI (Vector).
+*   **LSM Engine**: High-speed write throughput.
+*   **Vector Search**: Built-in similarity search for embeddings.
+*   **Columnar Analytics**: Fast aggregations using NumPy.
 
 ---
 
 ## 🚀 Key Features
 
-*   **LSM-Tree Engine**: High throughput writes using MemTables and SSTables.
-*   **Vector Search**: Built-in similarity search for AI applications.
-*   **Analytics**: Columnar storage for fast SUM/AVG/COUNT queries.
-*   **Hybrid Storage**: Support for Tables, Collections, and Vectors.
-*   **Zero Dependencies**: (Mostly) Pure Python + NumPy + Optional optimizations.
+*   **Hybrid Storage**: Tables (SQL), Collections (NoSQL), Vectors (AI).
+*   **High Performance**: Native Caching, B-Tree Indexing, Cython Optimizations.
+*   **Zero Dependencies**: (Mostly) Pure Python + NumPy.
+*   **ACID Compliant**: Write-Ahead Log (WAL) ensures durability.
 
 ---
 
 ## 📦 Installation
 
 ```bash
-pip install pyhybriddb numpy
+pip install pyhybriddb
 ```
 
 ---
 
-## ⚡ Tiered Usage Guide
+## ⚡ Quick Start & Examples
 
-### Tier 1: Document/Key-Value Store (MongoDB-like)
+See `examples/full_demo.py` for a comprehensive runnable demo.
 
-Ideal for flexible data structures, user profiles, or logs.
+### 1. Document/Key-Value Store (LSM Tier)
+
+Ideal for user profiles, logs, and flexible data.
 
 ```python
 from pyhybriddb import Database
 
-# 1. Initialize DB
+# Initialize (LSM Engine default for v2.0)
 db = Database("my_app_db", engine="lsm")
 db.create()
 
-# 2. Create Collection
+# Create Collection
 users = db.create_collection("users")
 
-# 3. CRUD Operations
-# Insert
-uid = users.insert_one({"name": "Alice", "role": "admin", "meta": {"login": "today"}})
+# Bulk Import
+users.insert_many([
+    {"name": "Alice", "role": "admin", "dept": "Engineering"},
+    {"name": "Bob", "role": "staff", "dept": "Sales"}
+])
 
-# Find
-admin = users.find_one({"role": "admin"})
-
-# Update
-users.update_one({"name": "Alice"}, {"$set": {"active": True}})
+# Filter / Find
+alice = users.find_one({"name": "Alice"})
+print(alice)
 
 # Delete
-users.delete_one({"name": "Alice"})
+users.delete_one({"name": "Bob"})
 ```
 
-### Tier 2: SQL/Analytics Store (ClickHouse-like)
+### 2. Analytics Store (Columnar Tier)
 
-Ideal for large datasets needing aggregation (logs, financial data, sensor readings).
+Ideal for financial data, sensor logs, and aggregations.
 
 ```python
-# 1. Create Analytics Table
-# Schema defines types: 'int', 'float', 'str'
-logs = db.create_analytics_table("server_logs", {
-    "timestamp": "int",
-    "cpu_usage": "float",
-    "requests": "int"
+# Create Analytics Table
+sales = db.create_analytics_table("sales_data", {
+    "amount": "float",
+    "qty": "int"
 })
 
-# 2. Insert Data (Batch is recommended)
-import time
-batch = []
-for i in range(1000):
-    batch.append({
-        "timestamp": int(time.time()),
-        "cpu_usage": 0.45,
-        "requests": 10
-    })
-logs.insert_many(batch)
+# Insert Data
+sales.insert_many([
+    {"amount": 100.50, "qty": 2},
+    {"amount": 200.00, "qty": 1},
+    {"amount": 50.25, "qty": 5}
+])
 
-# 3. Aggregation (Fast Vectorized Operations)
-total_requests = logs.aggregate("requests", "sum")
-avg_cpu = logs.aggregate("cpu_usage", "avg")
-
-# 4. Select
-recent_logs = logs.select(columns=["cpu_usage"], limit=5)
+# Aggregation (Vectorized)
+total_revenue = sales.aggregate("amount", "sum")
+print(f"Total Revenue: {total_revenue}")
 ```
 
-### Tier 3: Vector Store (Milvus-like)
+### 3. Vector Store (AI Tier)
 
-Ideal for AI embeddings, image search, or semantic text search.
+Ideal for Image Search, Semantic Text Search.
 
 ```python
-# 1. Create Vector Index
-# Define dimension (e.g., 128 for small models, 1536 for OpenAI)
-vectors = db.create_vector_index("image_embeddings", dimension=128)
+# Create Vector Index (dimension=128)
+face_db = db.create_vector_index("faces", dimension=128)
 
-# 2. Add Vectors
-# You can link the vector to a record ID from your document store
-vector_data = [0.1, 0.5, ...] # list of 128 floats
-vectors.add(vector_data, record_id="image_123")
+# Add Vectors
+import random
+vec = [random.random() for _ in range(128)]
+face_db.add(vec, record_id="user_123")
 
-# 3. Similarity Search
-# Find top 5 similar items
-query_vec = [0.1, 0.4, ...]
-results = vectors.search(query_vec, k=5)
-
-# Returns: [('image_123', 0.98), ('image_456', 0.85)]
-for vid, score in results:
-    print(f"Found {vid} with score {score}")
+# Similarity Search
+matches = face_db.search(vec, k=1)
+print(f"Top Match: {matches[0]}")
 ```
 
 ---
 
 ## 🔧 Architecture
 
-*   **LSM Engine**: MemTable (RAM) -> WAL (Disk) -> SSTable (Disk).
-*   **Columnar Engine**: Data stored as contiguous NumPy arrays (`.npy`) per column.
-*   **Vector Engine**: Flat Index using NumPy for vectorized Cosine Similarity.
+*   **LSM Tier**: MemTable (RAM) -> WAL (Disk) -> SSTable (Disk). Optimized for writes.
+*   **Columnar Tier**: NumPy arrays on disk. Optimized for OLAP scans.
+*   **Vector Tier**: Flat Index / Cosine Similarity. Optimized for AI.
+
+---
+
+## 📚 Documentation
+
+For detailed configuration, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
 
 ---
 
