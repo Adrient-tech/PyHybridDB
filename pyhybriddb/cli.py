@@ -31,6 +31,12 @@ def main():
     server_parser.add_argument('--port', type=int, default=Config.API_PORT, help='Port number')
     server_parser.add_argument('--reload', action='store_true', default=Config.API_RELOAD, help='Enable auto-reload')
     
+    # Start Distributed Node
+    node_parser = subparsers.add_parser('node', help='Start a Distributed Node')
+    node_parser.add_argument('--name', required=True, help='Node name (e.g., node1)')
+    node_parser.add_argument('--path', required=True, help='Data directory for this node')
+    node_parser.add_argument('--port', type=int, required=True, help='Port to listen on')
+
     # Interactive shell
     shell_parser = subparsers.add_parser('shell', help='Interactive shell')
     shell_parser.add_argument('database', help='Database name')
@@ -56,6 +62,8 @@ def main():
         create_database(args.name, args.path, logger)
     elif args.command == 'serve':
         start_server(args.host, args.port, args.reload, logger)
+    elif args.command == 'node':
+        start_node(args.name, args.path, args.port, logger)
     elif args.command == 'shell':
         interactive_shell(args.database, args.path, logger)
     elif args.command == 'info':
@@ -97,6 +105,31 @@ def start_server(host: str, port: int, reload: bool, logger):
         )
     except Exception as e:
         logger.error(f"Failed to start server: {e}")
+        print(f"✗ Error: {e}")
+        sys.exit(1)
+
+
+def start_node(name: str, path: str, port: int, logger):
+    """Start a Distributed Node"""
+    try:
+        import uvicorn
+        import os
+
+        # Pass config via Env Vars
+        os.environ["PHDB_NODE_NAME"] = name
+        os.environ["PHDB_NODE_PATH"] = path
+
+        logger.info(f"Starting Node '{name}' on port {port}")
+        print(f"🌐 Starting Distributed Node '{name}' at http://0.0.0.0:{port}")
+
+        uvicorn.run(
+            "pyhybriddb.distributed.node:app",
+            host="0.0.0.0",
+            port=port,
+            reload=False
+        )
+    except Exception as e:
+        logger.error(f"Failed to start node: {e}")
         print(f"✗ Error: {e}")
         sys.exit(1)
 

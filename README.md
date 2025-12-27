@@ -1,9 +1,13 @@
 # PyHybridDB: The Versatile Local Database (v2.0)
 
+[![PyPI version](https://badge.fury.io/py/pyhybriddb.svg)](https://badge.fury.io/py/pyhybriddb)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 **PyHybridDB** is a high-performance, tiered storage database engine designed for modern Python applications. It unifies the best of SQL (structured), NoSQL (unstructured), and Vector (AI) worlds into a single, lightweight package.
 
 **New in v2.0:**
 *   **Tiered Architecture**: Hot Data (LSM), Analytics (Columnar), and AI (Vector).
+*   **Distributed Mode**: Sharding and replication across multiple nodes (Beta).
 *   **LSM Engine**: High-speed write throughput.
 *   **Vector Search**: Built-in similarity search for embeddings.
 *   **Columnar Analytics**: Fast aggregations using NumPy.
@@ -14,6 +18,7 @@
 
 *   **Hybrid Storage**: Tables (SQL), Collections (NoSQL), Vectors (AI).
 *   **High Performance**: Native Caching, B-Tree Indexing, Cython Optimizations.
+*   **Distributed**: Consistent Hashing, Horizontal Scaling.
 *   **Zero Dependencies**: (Mostly) Pure Python + NumPy.
 *   **ACID Compliant**: Write-Ahead Log (WAL) ensures durability.
 
@@ -27,18 +32,17 @@ pip install pyhybriddb
 
 ---
 
-## ⚡ Quick Start & Examples
+## ⚡ Tiered Usage Guide
 
-See `examples/full_demo.py` for a comprehensive runnable demo.
+### Tier 1: Document/Key-Value Store (LSM Tier)
+*Best for: User profiles, logs, flexible data, high-throughput writes.*
 
-### 1. Document/Key-Value Store (LSM Tier)
-
-Ideal for user profiles, logs, and flexible data.
+[View Full Documentation](docs/LSM_TIER.md)
 
 ```python
 from pyhybriddb import Database
 
-# Initialize (LSM Engine default for v2.0)
+# Initialize (LSM Engine default)
 db = Database("my_app_db", engine="lsm")
 db.create()
 
@@ -53,15 +57,16 @@ users.insert_many([
 
 # Filter / Find
 alice = users.find_one({"name": "Alice"})
-print(alice)
 
-# Delete
+# Update & Delete
+users.update_one({"name": "Alice"}, {"$set": {"active": True}})
 users.delete_one({"name": "Bob"})
 ```
 
-### 2. Analytics Store (Columnar Tier)
+### Tier 2: Analytics Store (Columnar Tier)
+*Best for: Financial data, sensor logs, aggregations, OLAP.*
 
-Ideal for financial data, sensor logs, and aggregations.
+[View Full Documentation](docs/COLUMNAR_TIER.md)
 
 ```python
 # Create Analytics Table
@@ -74,7 +79,6 @@ sales = db.create_analytics_table("sales_data", {
 sales.insert_many([
     {"amount": 100.50, "qty": 2},
     {"amount": 200.00, "qty": 1},
-    {"amount": 50.25, "qty": 5}
 ])
 
 # Aggregation (Vectorized)
@@ -82,9 +86,10 @@ total_revenue = sales.aggregate("amount", "sum")
 print(f"Total Revenue: {total_revenue}")
 ```
 
-### 3. Vector Store (AI Tier)
+### Tier 3: Vector Store (AI Tier)
+*Best for: Image Search, Semantic Text Search, Embeddings.*
 
-Ideal for Image Search, Semantic Text Search.
+[View Full Documentation](docs/VECTOR_TIER.md)
 
 ```python
 # Create Vector Index (dimension=128)
@@ -100,19 +105,33 @@ matches = face_db.search(vec, k=1)
 print(f"Top Match: {matches[0]}")
 ```
 
+### Tier 4: Distributed Cluster (Beta)
+*Best for: TB-scale data, Horizontal Scaling.*
+
+[View Full Documentation](docs/DISTRIBUTED.md)
+
+```python
+from pyhybriddb.distributed import DistributedCluster
+
+# Connect to Cluster
+cluster = DistributedCluster(["http://node1:8001", "http://node2:8002"])
+
+# Write Data (Automatically Sharded)
+cluster.write("users", {"name": "Alice"}, key_field="id")
+```
+
 ---
 
-## 🔧 Architecture
+## 📚 Detailed Documentation
 
-*   **LSM Tier**: MemTable (RAM) -> WAL (Disk) -> SSTable (Disk). Optimized for writes.
-*   **Columnar Tier**: NumPy arrays on disk. Optimized for OLAP scans.
-*   **Vector Tier**: Flat Index / Cosine Similarity. Optimized for AI.
+*   [**LSM Tier (Document/KV)**](docs/LSM_TIER.md): Deep dive into WAL, MemTables, and CRUD.
+*   [**Columnar Tier (Analytics)**](docs/COLUMNAR_TIER.md): How to use aggregations and schema.
+*   [**Vector Tier (AI)**](docs/VECTOR_TIER.md): Managing embeddings and similarity search.
+*   [**Distributed Mode**](docs/DISTRIBUTED.md): Setting up a cluster and sharding.
+*   [**Configuration Guide**](CONFIGURATION_GUIDE.md): Environment variables and tuning.
 
----
-
-## 📚 Documentation
-
-For detailed configuration, see [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md).
+**Run the Demo:**
+See `examples/full_demo.py` for a complete runnable script covering all features.
 
 ---
 
